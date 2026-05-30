@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>QQ聊天 - 测试版</title>
+    <style>
+        body {
+            font-family: "Microsoft YaHei", sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 50px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+        }
+        h1 { font-size: 48px; margin-bottom: 30px; }
+        button {
+            font-size: 18px;
+            padding: 15px 40px;
+            margin: 10px;
+            border: none;
+            border-radius: 10px;
+            background: white;
+            color: #667eea;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover { transform: scale(1.05); }
+        #result { margin-top: 30px; font-size: 16px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎉 QQ聊天工具</h1>
+        <p>PyWebView 测试页面</p>
+        <button onclick="testAPI()">测试API调用</button>
+        <button onclick="checkConfig()">检查配置</button>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        // 等待 pywebview 准备就绪
+        function waitForAPI() {
+            return new Promise((resolve) => {
+                if (window.pywebview && window.pywebview.api) {
+                    resolve();
+                } else {
+                    setTimeout(() => waitForAPI().then(resolve), 100);
+                }
+            });
+        }
+
+        async function testAPI() {
+            await waitForAPI();
+            const result = await pywebview.api.api_test();
+            document.getElementById('result').innerHTML = 
+                '<p>✅ API调用成功！</p><p>返回: ' + result + '</p>';
+        }
+
+        async function checkConfig() {
+            await waitForAPI();
+            const result = await pywebview.api.api_check_config();
+            document.getElementById('result').innerHTML = 
+                '<p>✅ 配置检查完成！</p><p>返回: ' + JSON.stringify(result) + '</p>';
+        }
+
+        // 页面加载完成提示
+        window.onload = function() {
+            document.getElementById('result').innerHTML = 
+                '<p>✅ 页面加载成功！</p><p>正在等待API...</p>';
+        };
+    </script>
+</body>
+</html>

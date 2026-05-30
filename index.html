@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>QQ聊天</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Microsoft YaHei','微软雅黑',Arial,sans-serif; height:100vh; overflow:hidden; background:#f0f2f5; }
+        
+        #wizard { display:flex; justify-content:center; align-items:center; height:100vh; }
+        .card { background:#fff; padding:40px; border-radius:12px; box-shadow:0 2px 12px rgba(0,0,0,0.1); width:420px; }
+        .card h2 { text-align:center; color:#333; margin-bottom:24px; font-size:20px; }
+        .card label { font-size:14px; color:#666; display:block; margin-top:8px; font-weight:bold; }
+        .card input { width:100%; padding:12px; margin:8px 0; border:1px solid #ddd; border-radius:6px; font-size:14px; box-sizing:border-box; outline:none; }
+        .card input:focus { border-color:#1890ff; box-shadow:0 0 0 2px rgba(24,144,255,0.2); }
+        .card button { width:100%; padding:12px; margin-top:16px; background:#1890ff; color:#fff; border:none; border-radius:6px; font-size:16px; cursor:pointer; }
+        .card button:hover { background:#40a9ff; }
+        .error-msg { color:#ff4d4f; font-size:13px; margin-top:8px; min-height:18px; }
+        .hint { color:#999; font-size:12px; margin-top:6px; line-height:1.6; }
+        
+        #mainApp { display:none; height:100vh; }
+        .sidebar { width:280px; background:#2e2e2e; color:#fff; display:flex; flex-direction:column; flex-shrink:0; }
+        .sidebar-header { padding:20px; background:#1e1e1e; font-size:16px; font-weight:bold; display:flex; justify-content:space-between; align-items:center; }
+        .sidebar-header button { background:none; border:none; color:#fff; cursor:pointer; font-size:20px; padding:4px 8px; border-radius:4px; }
+        .sidebar-header button:hover { background:#3e3e3e; }
+        .contact-list { flex:1; overflow-y:auto; }
+        .contact-item { padding:15px 20px; cursor:pointer; display:flex; align-items:center; border-bottom:1px solid #3e3e3e; transition:background 0.15s; }
+        .contact-item:hover { background:#3e3e3e; }
+        .contact-item.active { background:#1890ff; }
+        .contact-avatar { width:40px; height:40px; border-radius:50%; background:#1890ff; display:flex; justify-content:center; align-items:center; margin-right:12px; font-size:18px; flex-shrink:0; }
+        .contact-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .contact-del { color:#999; cursor:pointer; font-size:16px; padding:2px 6px; border-radius:4px; margin-left:8px; display:none; }
+        .contact-item:hover .contact-del { display:block; }
+        .contact-del:hover { color:#ff4d4f; background:#4a1a1a; }
+        
+        .chat-area { flex:1; display:flex; flex-direction:column; min-width:0; }
+        .chat-header { padding:16px 24px; background:#fff; border-bottom:1px solid #e8e8e8; font-size:16px; font-weight:bold; display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
+        .chat-status { font-size:12px; padding:4px 12px; border-radius:12px; }
+        .chat-status.connected { background:#f6ffed; color:#52c41a; border:1px solid #b7eb8f; }
+        .chat-status.disconnected { background:#fff2f0; color:#ff4d4f; border:1px solid #ffccc7; }
+        .messages { flex:1; padding:24px; overflow-y:auto; background:#f0f2f5; }
+        .msg { margin-bottom:20px; display:flex; align-items:flex-start; gap:10px; }
+        .msg.user { justify-content:flex-start; flex-direction:row; }
+        .msg.bot { justify-content:flex-start; flex-direction:row-reverse; }
+        .msg-avatar { width:38px; height:38px; border-radius:50%; display:flex; justify-content:center; align-items:center; font-size:16px; flex-shrink:0; color:#fff; }
+        .msg.user .msg-avatar { background:#1890ff; }
+        .msg.bot .msg-avatar { background:#52c41a; }
+        .bubble { max-width:60%; padding:12px 16px; border-radius:12px; font-size:14px; line-height:1.6; word-break:break-word; }
+        .msg.user .bubble { background:#fff; border-top-left-radius:4px; }
+        .msg.bot .bubble { background:#95ec69; border-top-right-radius:4px; }
+        .msg-image { max-width:200px; max-height:200px; min-width:80px; min-height:40px; border-radius:8px; margin-top:6px; object-fit:contain; background:#eee; display:block; }
+        .input-area { padding:16px 24px; background:#fff; border-top:1px solid #e8e8e8; display:flex; gap:12px; flex-shrink:0; }
+        .input-area textarea { flex:1; padding:12px; border:1px solid #ddd; border-radius:6px; font-size:14px; resize:none; height:60px; font-family:'Microsoft YaHei','微软雅黑',sans-serif; outline:none; }
+        .input-area textarea:focus { border-color:#1890ff; }
+        .input-area button { padding:12px 28px; background:#1890ff; color:#fff; border:none; border-radius:6px; font-size:14px; cursor:pointer; align-self:flex-end; }
+        .input-area button:hover { background:#40a9ff; }
+        .input-area button:disabled { background:#d9d9d9; cursor:not-allowed; }
+        .status-bar { padding:10px 24px; background:#fff; border-top:1px solid #e8e8e8; display:flex; gap:12px; align-items:center; flex-shrink:0; }
+        .btn-start { padding:8px 20px; background:#1890ff; color:#fff; border:none; border-radius:6px; font-size:13px; cursor:pointer; }
+        .btn-start:hover { background:#40a9ff; }
+        .btn-start:disabled { background:#d9d9d9; cursor:not-allowed; }
+        .status-text { color:#999; font-size:13px; }
+        
+        .modal-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center; }
+        .modal-overlay.show { display:flex; }
+        .modal { background:#fff; padding:36px; border-radius:12px; width:400px; text-align:center; }
+        .modal h2 { margin-top:0; margin-bottom:24px; font-size:20px; }
+        .modal p { color:#666; margin:12px 0; font-size:14px; }
+        .modal label { display:block; text-align:left; margin-top:12px; color:#666; font-size:14px; font-weight:bold; }
+        .modal input { width:100%; padding:10px; margin:6px 0 12px 0; border:1px solid #ddd; border-radius:6px; font-size:14px; box-sizing:border-box; outline:none; }
+        .modal input:focus { border-color:#1890ff; }
+        .modal-btn { width:100%; padding:12px; margin:8px 0; border:none; border-radius:6px; font-size:14px; cursor:pointer; }
+        .modal-btn-primary { background:#1890ff; color:#fff; }
+        .modal-btn-danger { background:#ff4d4f; color:#fff; }
+        .modal-btn-success { background:#52c41a; color:#fff; }
+        .modal-btn-default { background:#ddd; color:#333; }
+    </style>
+</head>
+<body>
+
+<!-- 配置向导 -->
+<div id="wizard">
+    <div class="card">
+        <h2>QQ机器人配置</h2>
+        <label>App ID（应用ID）</label>
+        <input type="text" id="appId" placeholder="请输入你的QQ机器人App ID">
+        <label>Secret（密钥）</label>
+        <input type="password" id="secret" placeholder="请输入你的Secret密钥">
+        <label>环境</label>
+        <select id="envSelect" style="width:100%;padding:12px;margin:8px 0;border:1px solid #ddd;border-radius:6px;font-size:14px;outline:none;">
+            <option value="sandbox">沙箱环境 (sandbox)</option>
+            <option value="production">正式环境 (production)</option>
+        </select>
+        <div class="error-msg" id="errorMsg"></div>
+        <div class="hint">在 QQ开放平台 (bot.qq.com) 创建机器人获取AppID和Secret</div>
+        <button id="saveBtn">保存并启动</button>
+    </div>
+</div>
+
+<!-- 主界面 -->
+<div id="mainApp">
+    <div style="display:flex;height:100vh;">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <span>QQ聊天</span>
+                <div>
+                    <button id="addChatBtn" title="添加聊天">＋</button>
+                    <button id="settingsBtn" title="设置">⚙</button>
+                </div>
+            </div>
+            <div class="contact-list" id="contactList">
+                <div style="text-align:center;color:#999;margin-top:60px;font-size:14px;">暂无聊天<br><br>点击 ＋ 添加<br>或向机器人发消息自动添加</div>
+            </div>
+        </div>
+        <div class="chat-area">
+            <div class="chat-header">
+                <span id="chatHeader">选择聊天开始对话</span>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <button id="clearChatBtn" style="background:none;border:1px solid #ddd;padding:4px 10px;border-radius:4px;font-size:12px;color:#999;cursor:pointer;display:none;">清空聊天</button>
+                    <span class="chat-status disconnected" id="chatStatus">未连接</span>
+                </div>
+            </div>
+            <div class="messages" id="messages">
+                <div style="text-align:center;color:#999;margin-top:60px;">← 请从左侧列表选择一个聊天</div>
+            </div>
+            <div class="input-area">
+                <textarea id="msgInput" placeholder="输入消息... (按Enter发送，Shift+Enter换行)" disabled></textarea>
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                    <input type="text" id="imageInput" placeholder="图片URL（可选）" style="width:160px;padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:12px;outline:none;">
+                    <button id="sendBtn" disabled style="padding:8px 16px;">发送</button>
+                </div>
+            </div>
+            <div class="status-bar">
+                <span class="status-text" id="statusText">后端未启动</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 添加聊天弹窗 -->
+<div class="modal-overlay" id="addChatModal">
+    <div class="modal">
+        <h2>添加聊天</h2>
+        <label>OpenID（频道/群组ID）</label>
+        <input type="text" id="openidInput" placeholder="例如：channel:123456789">
+        <label>显示名称</label>
+        <input type="text" id="chatNameInput" placeholder="例如：我的频道">
+        <label>头像URL（可选）</label>
+        <input type="text" id="chatAvatarInput" placeholder="例如：https://example.com/avatar.jpg">
+        <div class="error-msg" id="addChatError"></div>
+        <button class="modal-btn modal-btn-primary" id="confirmAddChatBtn">添加</button>
+        <button class="modal-btn modal-btn-default" id="cancelAddChatBtn">取消</button>
+    </div>
+</div>
+
+<!-- 编辑聊天弹窗 -->
+<div class="modal-overlay" id="editChatModal">
+    <div class="modal">
+        <h2>编辑联系人</h2>
+        <label>显示名称</label>
+        <input type="text" id="editChatNameInput" placeholder="例如：我的频道">
+        <label>头像URL（可选）</label>
+        <input type="text" id="editChatAvatarInput" placeholder="例如：https://example.com/avatar.jpg">
+        <div class="error-msg" id="editChatError"></div>
+        <button class="modal-btn modal-btn-primary" id="confirmEditChatBtn">保存</button>
+        <button class="modal-btn modal-btn-default" id="cancelEditChatBtn">取消</button>
+    </div>
+</div>
+
+<!-- 命名OpenID弹窗 -->
+<div class="modal-overlay" id="nameOpenidModal">
+    <div class="modal">
+        <h2>新的联系人</h2>
+        <p>检测到新的OpenID：<strong id="detectedOpenid"></strong></p>
+        <label>联系人名称</label>
+        <input type="text" id="contactNameInput" placeholder="例如：张三、我的频道">
+        <div class="error-msg" id="nameOpenidError"></div>
+        <button class="modal-btn modal-btn-primary" id="confirmNameBtn">确认</button>
+        <button class="modal-btn modal-btn-default" id="cancelNameBtn">忽略</button>
+    </div>
+</div>
+
+<!-- 设置弹窗 -->
+<div class="modal-overlay" id="settingsModal">
+    <div class="modal">
+        <h2>设置</h2>
+        <button class="modal-btn modal-btn-primary" id="toggleBotBtn">启动机器人</button>
+        <button class="modal-btn modal-btn-primary" id="openLogWindowBtn">查看实时日志</button>
+        <button class="modal-btn modal-btn-primary" id="openLogFolderBtn">打开日志文件夹</button>
+        <button class="modal-btn modal-btn-success" id="autoScanBtn">从日志扫描联系人</button>
+        <button class="modal-btn modal-btn-danger" id="resetBtn">重置所有配置</button>
+        <button class="modal-btn modal-btn-success" id="aboutBtn">关于</button>
+        <button class="modal-btn modal-btn-default" id="closeSettingsBtn">关闭</button>
+    </div>
+</div>
+
+<!-- 关于弹窗 -->
+<div class="modal-overlay" id="aboutModal">
+    <div class="modal">
+        <h2>关于</h2>
+        <p style="font-size:16px;font-weight:bold;color:#333;">QQ机器人管理器</p>
+        <p>作者：IDcnc</p>
+        <p style="color:#999;font-size:12px;margin-top:12px;">基于 Bottle + QQ官方API</p>
+        <button class="modal-btn modal-btn-primary" id="closeAboutBtn">关闭</button>
+    </div>
+</div>
+
+<script>
+    var API_BASE = window.location.origin || 'http://127.0.0.1:9527';
+    var currentContact = null;
+    var contacts = [];
+    var pollInterval = null;
+    var editingContactId = null;
+    
+    // ==================== HTTP 请求封装 ====================
+    function apiCall(endpoint, method, data, callback) {
+        var url = API_BASE + '/' + endpoint;
+        var options = {
+            method: method || 'GET',
+            headers: {'Content-Type': 'application/json'}
+        };
+        if (data) {
+            options.body = JSON.stringify(data);
+        }
+        fetch(url, options)
+            .then(function(response) { return response.json(); })
+            .then(function(result) { callback(null, result); })
+            .catch(function(err) { callback(err, null); });
+    }
+    
+    // ==================== 初始化 ====================
+    function initApp() {
+        document.getElementById('wizard').style.display = 'none';
+        document.getElementById('mainApp').style.display = 'block';
+
+        startStatusPoll();  // 轮询bot连接状态
+
+        // 绑定按钮
+        document.getElementById('saveBtn').onclick = saveConfig;
+        document.getElementById('addChatBtn').onclick = function() { document.getElementById('addChatModal').classList.add('show'); };
+        document.getElementById('settingsBtn').onclick = function() { document.getElementById('settingsModal').classList.add('show'); };
+        document.getElementById('confirmAddChatBtn').onclick = addContact;
+        document.getElementById('cancelAddChatBtn').onclick = function() { document.getElementById('addChatModal').classList.remove('show'); };
+        document.getElementById('confirmEditChatBtn').onclick = saveEditContact;
+        document.getElementById('cancelEditChatBtn').onclick = function() { document.getElementById('editChatModal').classList.remove('show'); };
+        document.getElementById('confirmNameBtn').onclick = confirmOpenid;
+        document.getElementById('cancelNameBtn').onclick = function() { document.getElementById('nameOpenidModal').classList.remove('show'); };
+        document.getElementById('toggleBotBtn').onclick = toggleBot;
+        document.getElementById('openLogFolderBtn').onclick = openLogFolder;
+        document.getElementById('openLogWindowBtn').onclick = openLogWindow;
+        document.getElementById('autoScanBtn').onclick = autoScanContacts;
+        document.getElementById('resetBtn').onclick = resetConfig;
+        document.getElementById('aboutBtn').onclick = function() { document.getElementById('aboutModal').classList.add('show'); };
+        document.getElementById('closeSettingsBtn').onclick = function() { document.getElementById('settingsModal').classList.remove('show'); };
+        document.getElementById('closeAboutBtn').onclick = function() { document.getElementById('aboutModal').classList.remove('show'); };
+        document.getElementById('sendBtn').onclick = sendMessage;
+        document.getElementById('msgInput').onkeydown = function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+        };
+        document.getElementById('clearChatBtn').onclick = function() {
+            if (!currentContact) return;
+            if (confirm('确定清空与 "' + currentContact.name + '" 的所有聊天记录吗？此操作不可恢复。')) {
+                apiCall('api/clear_messages', 'POST', {contact_id: currentContact.id}, function(err, result) {
+                    if (result && result.status === 'ok') {
+                        loadMessages(currentContact.id);
+                    } else {
+                        alert('清空失败: ' + (result ? result.message : '未知错误'));
+                    }
+                });
+            }
+        };
+        
+        if (window.Notification && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+
+        loadContacts();
+        startPolling();
+
+        apiCall('api/check_config', 'GET', null, function(err, result) {
+            if (result && result.status === 'ok') {
+                toggleBot();
+            }
+        });
+    }
+    
+    // ==================== 配置保存 ====================
+    function saveConfig() {
+        var appId = document.getElementById('appId').value.trim();
+        var secret = document.getElementById('secret').value.trim();
+        var errEl = document.getElementById('errorMsg');
+        
+        if (!appId || !secret) {
+            errEl.textContent = '请填写完整信息';
+            return;
+        }
+        
+        errEl.textContent = '保存中...';
+        var env = document.getElementById('envSelect').value;
+        apiCall('api/save_config', 'POST', {appId: appId, secret: secret, env: env}, function(err, result) {
+            if (result && result.status === 'ok') {
+                initApp();
+            } else {
+                errEl.textContent = result ? result.message : '保存失败';
+            }
+        });
+    }
+    
+    // ==================== 联系人 ====================
+    function loadContacts() {
+        apiCall('api/contacts', 'GET', null, function(err, result) {
+            if (result && result.contacts) {
+                contacts = result.contacts;
+                renderContacts();
+            }
+        });
+    }
+    
+    function renderContacts() {
+        var list = document.getElementById('contactList');
+        if (contacts.length === 0) {
+            list.innerHTML = '<div style="text-align:center;color:#999;margin-top:60px;font-size:14px;">暂无聊天<br><br>点击 ＋ 添加<br>或向机器人发消息自动添加</div>';
+            return;
+        }
+        list.innerHTML = '';
+        contacts.forEach(function(c, idx) {
+            var div = document.createElement('div');
+            div.className = 'contact-item';
+            var avatarHtml = c.avatar
+                ? '<img src="' + c.avatar + '" class="contact-avatar" style="object-fit:cover;" onerror="this.style.display=\'none\';this.previousElementSibling.style.display=\'flex\';" />'
+                : '';
+            var initialHtml = '<div class="contact-avatar"' + (c.avatar ? ' style="display:none;"' : '') + '>' + (c.name ? c.name.charAt(0) : '?') + '</div>';
+            div.innerHTML = initialHtml + avatarHtml + '<div class="contact-name">' + (c.name || '未命名') + '</div><span class="contact-del" title="编辑" style="right:35px;">✎</span><span class="contact-del" title="删除">×</span>';
+            (function(contact, el) {
+                el.querySelector('.contact-name').onclick = function() { selectContact(contact, el); };
+                el.querySelector('.contact-avatar').onclick = function() { selectContact(contact, el); };
+                var editBtn = el.querySelector('.contact-del[title="编辑"]');
+                editBtn.onclick = function(e) {
+                    e.stopPropagation();
+                    editingContactId = contact.id;
+                    document.getElementById('editChatNameInput').value = contact.name || '';
+                    document.getElementById('editChatAvatarInput').value = contact.avatar || '';
+                    document.getElementById('editChatError').textContent = '';
+                    document.getElementById('editChatModal').classList.add('show');
+                };
+                var delBtn = el.querySelector('.contact-del[title="删除"]');
+                delBtn.onclick = function(e) {
+                    e.stopPropagation();
+                    if (confirm('确定删除联系人 "' + contact.name + '" 吗？')) {
+                        apiCall('api/remove_contact', 'POST', {openid: contact.id}, function(err, result) {
+                            if (result && result.status === 'ok') {
+                                if (currentContact && currentContact.id === contact.id) {
+                                    currentContact = null;
+                                    document.getElementById('chatHeader').textContent = '选择聊天开始对话';
+                                    document.getElementById('messages').innerHTML = '<div style="text-align:center;color:#999;margin-top:60px;">← 请从左侧列表选择一个聊天</div>';
+                                    document.getElementById('msgInput').disabled = true;
+                                    document.getElementById('sendBtn').disabled = true;
+                                }
+                                loadContacts();
+                            } else {
+                                alert('删除失败: ' + (result ? result.message : '未知错误'));
+                            }
+                        });
+                    }
+                };
+            })(c, div);
+            list.appendChild(div);
+        });
+    }
+    
+    function selectContact(contact, el) {
+        currentContact = contact;
+        document.getElementById('chatHeader').textContent = contact.name;
+        document.querySelectorAll('.contact-item').forEach(function(e){ e.classList.remove('active'); });
+        el.classList.add('active');
+        
+        var statusEl = document.getElementById('chatStatus');
+        statusEl.className = 'chat-status connected';
+        statusEl.textContent = '就绪';
+        document.getElementById('msgInput').disabled = false;
+        document.getElementById('sendBtn').disabled = false;
+        document.getElementById('clearChatBtn').style.display = 'inline-block';
+        
+        loadMessages(contact.id);
+        lastMsgCount = 0;
+        startMsgPoll();
+    }
+    
+    // ==================== 添加联系人 ====================
+    function addContact() {
+        var openid = document.getElementById('openidInput').value.trim();
+        var name = document.getElementById('chatNameInput').value.trim();
+        var avatar = document.getElementById('chatAvatarInput').value.trim();
+        var errEl = document.getElementById('addChatError');
+        
+        if (!openid || !name) {
+            errEl.textContent = '请填写完整信息';
+            return;
+        }
+        
+        errEl.textContent = '添加中...';
+        var body = {name: name, openid: openid};
+        if (avatar) body.avatar = avatar;
+        apiCall('api/add_contact', 'POST', body, function(err, result) {
+            if (result && result.status === 'ok') {
+                document.getElementById('addChatModal').classList.remove('show');
+                loadContacts();
+            } else {
+                errEl.textContent = result ? result.message : '添加失败';
+            }
+        });
+    }
+
+    function saveEditContact() {
+        var name = document.getElementById('editChatNameInput').value.trim();
+        var avatar = document.getElementById('editChatAvatarInput').value.trim();
+        var errEl = document.getElementById('editChatError');
+        if (!name || !editingContactId) {
+            errEl.textContent = '请填写完整信息';
+            return;
+        }
+        errEl.textContent = '保存中...';
+        var body = {openid: editingContactId, name: name};
+        if (avatar) body.avatar = avatar;
+        apiCall('api/update_contact', 'POST', body, function(err, result) {
+            if (result && result.status === 'ok') {
+                document.getElementById('editChatModal').classList.remove('show');
+                loadContacts();
+            } else {
+                errEl.textContent = result ? result.message : '保存失败';
+            }
+        });
+    }
+    
+    // ==================== 消息 ====================
+    function loadMessages(contactId) {
+        apiCall('api/messages?contact_id=' + encodeURIComponent(contactId), 'GET', null, function(err, result) {
+            if (result && result.messages) {
+                renderMessages(result.messages);
+            } else {
+                document.getElementById('messages').innerHTML = '<div style="text-align:center;color:#999;margin-top:60px;">暂无消息，发送第一条消息吧</div>';
+            }
+        });
+    }
+    
+    function addMessageBubble(from, content, msgId, images) {
+        var container = document.getElementById('messages');
+        var div = document.createElement('div');
+        div.className = 'msg ' + from;
+        var avatarUrl = '';
+        var initial = '';
+        if (from === 'user' && currentContact) {
+            avatarUrl = currentContact.avatar || '';
+            initial = currentContact.name ? currentContact.name[0] : 'U';
+        } else {
+            initial = 'B';
+        }
+        var avatarPart = avatarUrl
+            ? '<img src="' + avatarUrl + '" class="msg-avatar" style="object-fit:cover;" onerror="this.style.display=\'none\';this.previousElementSibling.style.display=\'flex\';"/>'
+            : '';
+        var initialPart = '<div class="msg-avatar"' + (avatarUrl ? ' style="display:none;"' : '') + '>' + initial + '</div>';
+        var bubbleContent = escapeHtml(content);
+        // 内联图片 URL
+        if (content && content.match(/^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i)) {
+            bubbleContent += '<br><img src="' + API_BASE + '/api/proxy_image?url=' + encodeURIComponent(content) + '" class="msg-image">';
+        }
+        // 附件图片
+        if (images && images.length) {
+            images.forEach(function(url) {
+                bubbleContent += '<br><img src="' + API_BASE + '/api/proxy_image?url=' + encodeURIComponent(url) + '" class="msg-image">';
+            });
+        }
+        if (from === 'bot' && msgId) {
+            bubbleContent += '<br><a href="#" class="recall-link" data-msgid="' + msgId + '" style="font-size:11px;color:#999;text-decoration:none;float:right;margin-top:2px;">撤回</a>';
+        }
+        div.innerHTML = initialPart + avatarPart + '<div class="bubble">' + bubbleContent + '</div>';
+
+        var recallLink = div.querySelector('.recall-link');
+        if (recallLink) {
+            recallLink.onclick = function(e) {
+                e.preventDefault();
+                if (confirm('确定撤回这条消息吗？')) {
+                    recallMessage(msgId);
+                }
+            };
+        }
+
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function recallMessage(msgId) {
+        if (!currentContact) return;
+        apiCall('api/recall_message', 'POST', {contact_id: currentContact.id, msg_id: msgId}, function(err, result) {
+            if (result && result.status === 'ok') {
+                loadMessages(currentContact.id);
+            } else {
+                alert('撤回失败: ' + (result ? result.message : '未知错误'));
+            }
+        });
+    }
+
+    function escapeHtml(text) {
+        var div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    function sendMessage() {
+        var input = document.getElementById('msgInput');
+        var content = input.value.trim();
+        var imageInput = document.getElementById('imageInput');
+        var image = imageInput.value.trim();
+        if ((!content && !image) || !currentContact) return;
+
+        input.value = '';
+        imageInput.value = '';
+        input.disabled = true;
+
+        var body = {contact_id: currentContact.id, content: content};
+        if (image) body.image = image;
+        apiCall('api/send_message', 'POST', body, function(err, result) {
+            input.disabled = false;
+            input.focus();
+            if (result && result.status === 'ok') {
+                loadMessages(currentContact.id);
+            } else {
+                alert('发送失败: ' + (result ? result.message : '未知错误'));
+            }
+        });
+    }
+    
+    // ==================== 启动/停止 ====================
+    function toggleBot() {
+        var btn = document.getElementById('toggleBotBtn');
+        var statusText = document.getElementById('statusText');
+
+        apiCall('api/bot_status', 'GET', null, function(err, result) {
+            if (result && result.running) {
+                btn.disabled = true;
+                btn.textContent = '停止中...';
+                apiCall('api/stop_bot', 'POST', null, function(err, result) {
+                    btn.textContent = '启动机器人';
+                    btn.disabled = false;
+                    statusText.textContent = '后端已停止';
+                    document.getElementById('chatStatus').className = 'chat-status disconnected';
+                    document.getElementById('chatStatus').textContent = '未连接';
+                });
+            } else {
+                btn.disabled = true;
+                btn.textContent = '启动中...';
+                statusText.textContent = '正在连接...';
+
+                apiCall('api/start_bot', 'POST', null, function(err, result) {
+                    btn.textContent = '停止机器人';
+                    btn.disabled = false;
+                    statusText.textContent = '正在连接QQ服务器...';
+                });
+            }
+        });
+    }
+
+    // ==================== 状态轮询 ====================
+    var statusPollTimer = null;
+    function startStatusPoll() {
+        stopStatusPoll();
+        statusPollTimer = setInterval(function() {
+            apiCall('api/bot_status', 'GET', null, function(err, result) {
+                var chatStatus = document.getElementById('chatStatus');
+                var startBtn = document.getElementById('toggleBotBtn');
+                var statusText = document.getElementById('statusText');
+                if (result && result.running) {
+                    if (result.connected) {
+                        chatStatus.className = 'chat-status connected';
+                        chatStatus.textContent = '已连接';
+                        statusText.textContent = 'QQ机器人运行中';
+                    } else {
+                        chatStatus.className = 'chat-status disconnected';
+                        chatStatus.textContent = '连接中...';
+                        statusText.textContent = '正在连接QQ服务器...';
+                    }
+                    startBtn.textContent = '停止机器人';
+                    startBtn.disabled = false;
+                } else {
+                    chatStatus.className = 'chat-status disconnected';
+                    chatStatus.textContent = '未连接';
+                    statusText.textContent = '后端已停止';
+                    startBtn.textContent = '启动机器人';
+                    startBtn.disabled = false;
+                }
+            });
+        }, 2000);
+    }
+    function stopStatusPoll() {
+        if (statusPollTimer) {
+            clearInterval(statusPollTimer);
+            statusPollTimer = null;
+        }
+    }
+
+    var msgPollTimer = null;
+    function startMsgPoll() {
+        stopMsgPoll();
+        msgPollTimer = setInterval(function() {
+            if (currentContact) {
+                loadMessagesSilent(currentContact.id);
+            }
+        }, 3000);
+    }
+    function stopMsgPoll() {
+        if (msgPollTimer) {
+            clearInterval(msgPollTimer);
+            msgPollTimer = null;
+        }
+    }
+    var lastMsgCount = 0;
+    function loadMessagesSilent(contactId) {
+        apiCall('api/messages?contact_id=' + encodeURIComponent(contactId), 'GET', null, function(err, result) {
+            if (result && result.messages && currentContact && currentContact.id === contactId) {
+                var container = document.getElementById('messages');
+                var prevCount = container.children.length;
+                var newMsgs = result.messages;
+                renderMessages(newMsgs);
+                if (container.children.length !== prevCount) {
+                    container.scrollTop = container.scrollHeight;
+                }
+                // 桌面通知：新消息且非当前标签激活时
+                if (newMsgs.length > lastMsgCount && lastMsgCount > 0 && !document.hasFocus()) {
+                    var latest = newMsgs[newMsgs.length - 1];
+                    if (latest.from === 'user' && window.Notification && Notification.permission === 'granted') {
+                        var name = currentContact ? currentContact.name : 'QQ消息';
+                        new Notification(name, {body: latest.content || '[图片]', icon: currentContact && currentContact.avatar || ''});
+                    }
+                }
+                lastMsgCount = newMsgs.length;
+            }
+        });
+    }
+    function renderMessages(messages) {
+        var container = document.getElementById('messages');
+        container.innerHTML = '';
+        messages.forEach(function(m) {
+            addMessageBubble(m.from, m.content, m.msg_id, m.images);
+        });
+        container.scrollTop = container.scrollHeight;
+    }
+    
+    // ==================== 轮询 ====================
+    function startPolling() {
+        if (pollInterval) clearInterval(pollInterval);
+        pollInterval = setInterval(function() {
+            apiCall('api/pending_openids', 'GET', null, function(err, result) {
+                if (result && result.openids && result.openids.length > 0) {
+                    var openid = result.openids[0].openid;
+                    document.getElementById('detectedOpenid').textContent = openid;
+                    document.getElementById('nameOpenidModal').classList.add('show');
+                    document.getElementById('contactNameInput').value = '';
+                    document.getElementById('nameOpenidError').textContent = '';
+                }
+            });
+        }, 3000);
+    }
+    
+    function confirmOpenid() {
+        var openid = document.getElementById('detectedOpenid').textContent;
+        var name = document.getElementById('contactNameInput').value.trim();
+        var errEl = document.getElementById('nameOpenidError');
+        
+        if (!name) {
+            errEl.textContent = '请填写联系人名称';
+            return;
+        }
+        
+        errEl.textContent = '保存中...';
+        apiCall('api/confirm_openid', 'POST', {openid: openid, name: name}, function(err, result) {
+            if (result && result.status === 'ok') {
+                document.getElementById('nameOpenidModal').classList.remove('show');
+                loadContacts();
+            } else {
+                errEl.textContent = result ? result.message : '保存失败';
+            }
+        });
+    }
+    
+    // ==================== 设置 ====================
+    function openLogFolder() {
+        apiCall('api/open_log_folder', 'POST', null, function(err, result) {
+            if (!result || result.status !== 'ok') {
+                alert('打开失败: ' + (result ? result.message : '未知错误'));
+            }
+        });
+    }
+
+    function openLogWindow() {
+        apiCall('api/open_log_window', 'POST', null, function(err, result) {
+            if (result && result.url) {
+                var w = window.open(result.url, 'qqbot_log', 'width=700,height=500,resizable=yes');
+                if (!w) {
+                    window.location.href = result.url;
+                }
+            } else {
+                alert('打开失败: ' + (result ? result.message : '未知错误'));
+            }
+        });
+    }
+
+    function autoScanContacts() {
+        var btn = document.getElementById('autoScanBtn');
+        btn.disabled = true;
+        btn.textContent = '扫描中...';
+        apiCall('api/auto_scan_contacts', 'POST', null, function(err, result) {
+            btn.disabled = false;
+            btn.textContent = '从日志扫描联系人';
+            if (result && result.status === 'ok') {
+                var msg = '找到 ' + result.found + ' 个ID，新增 ' + result.added + ' 个联系人。';
+                if (result.added > 0) {
+                    loadContacts();
+                }
+                alert(msg);
+            } else {
+                alert('扫描失败: ' + (result ? result.message : '未知错误'));
+            }
+        });
+    }
+    
+    function resetConfig() {
+        if (!confirm('确定要重置所有配置吗？此操作将清除AppID、Secret和所有聊天记录！')) {
+            return;
+        }
+        apiCall('api/reset', 'POST', null, function(err, result) {
+            if (result && result.status === 'ok') {
+                document.getElementById('settingsModal').classList.remove('show');
+                contacts = [];
+                renderContacts();
+                document.getElementById('mainApp').style.display = 'none';
+                document.getElementById('wizard').style.display = 'flex';
+                document.getElementById('appId').value = '';
+                document.getElementById('secret').value = '';
+            } else {
+                alert('重置失败: ' + (result ? result.message : '未知错误'));
+            }
+        });
+    }
+    
+    // ==================== 页面加载 ====================
+    // 检查是否已配置
+    apiCall('api/check_config', 'GET', null, function(err, result) {
+        if (result && result.status === 'ok') {
+            initApp();
+        }
+        // 否则显示向导页（默认显示）
+    });
+</script>
+</body>
+</html>
